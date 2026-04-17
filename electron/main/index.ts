@@ -31,7 +31,7 @@ function createWindow() {
     title: 'Claude Desktop Installer',
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 16, y: 18 },
-    backgroundColor: '#1a1b2e',
+    backgroundColor: '#0f0f11',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -61,8 +61,25 @@ function createWindow() {
   })
 
   // Load the app
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173')
+  const isDev = !app.isPackaged
+  if (isDev) {
+    // Wait for Vite dev server to be ready before loading
+    const tryLoad = async () => {
+      for (let i = 0; i < 30; i++) {
+        try {
+          const { net } = await import('electron')
+          const response = await net.fetch('http://localhost:5173/')
+          if (response.ok) {
+            mainWindow?.loadURL('http://localhost:5173')
+            return
+          }
+        } catch { /* not ready yet */ }
+        await new Promise(r => setTimeout(r, 500))
+      }
+      // Fallback: try loading anyway
+      mainWindow?.loadURL('http://localhost:5173')
+    }
+    tryLoad()
   } else {
     mainWindow.loadFile(join(__dirname, '../../dist/index.html'))
   }

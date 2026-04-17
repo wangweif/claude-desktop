@@ -3,7 +3,7 @@
   "productName": "Claude Desktop Installer",
   "version": "1.0.0",
   "description": "One-click installer for Node.js, Claude Code, MCP servers, and WeChat ACP",
-  "main": "dist-electron/main/index.js",
+  "main": "dist-electron/index.js",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,8 +17,8 @@
   "dependencies": {
     "@mantine/core": "^7.17.4",
     "@mantine/hooks": "^7.17.4",
-    "@mantine/notifications": "^7.17.4",
     "@mantine/modals": "^7.17.4",
+    "@mantine/notifications": "^7.17.4",
     "@tabler/icons-react": "^3.31.0",
     "electron-updater": "^6.3.9",
     "react": "^18.3.1",
@@ -33,6 +33,9 @@
     "electron": "^33.3.1",
     "electron-builder": "^24.13.3",
     "postcss": "^8.5.1",
+    "postcss-import": "^16.1.1",
+    "postcss-preset-mantine": "^1.18.0",
+    "postcss-simple-vars": "^7.0.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
     "vite": "^6.3.5",
@@ -53,7 +56,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "public/icon.icns",
@@ -63,7 +69,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "public/icon.ico"

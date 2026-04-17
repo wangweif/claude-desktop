@@ -1,65 +1,89 @@
-@tailwind base;
+@font-face {
+  font-family: 'AlibabaPuHuiTi';
+  src: url('./assets/fonts/AlibabaPuHuiTi-3-55-RegularL3.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'AlibabaPuHuiTi';
+  src: url('./assets/fonts/AlibabaPuHuiTi-3-35-Thin.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1b2e;
-  --bg-tertiary: #252640;
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --error: #ef4444;
-  --border: #334155;
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  margin: 0;
   overflow: hidden;
-  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  background-color: var(--mantine-color-body);
+  color: var(--mantine-color-text, #d4d4d8);
 }
 
-#root {
-  height: 100vh;
-  width: 100vw;
+code {
+  font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--mantine-color-surface-7);
   border-radius: 3px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
-/* Draggable title bar area (macOS) */
-.titlebar-drag {
-  -webkit-app-region: drag;
-  app-region: drag;
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+  50% { box-shadow: 0 0 6px 2px rgba(52, 211, 153, 0.3); }
 }
 
-.titlebar-no-drag {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+@keyframes message-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.message-in {
+  animation: message-in 0.2s ease-out;
+}
+
+/* 语义化颜色工具类 — 自动适配亮/暗模式 */
+.app-text-primary { color: var(--app-text-primary) !important; }
+.app-text-secondary { color: var(--app-text-secondary) !important; }
+.app-text-tertiary { color: var(--app-text-tertiary) !important; }
+.app-text-muted { color: var(--app-text-muted) !important; }
+.app-text-faint { color: var(--app-text-faint) !important; }
+.app-text-success { color: var(--app-text-success) !important; }
+.app-text-warning { color: var(--app-text-warning) !important; }
+.app-text-danger { color: var(--app-text-danger) !important; }
+
+.app-bg-primary { background-color: var(--app-bg-primary) !important; }
+.app-bg-secondary { background-color: var(--app-bg-secondary) !important; }
+.app-bg-tertiary { background-color: var(--app-bg-tertiary) !important; }
+.app-bg-inset { background-color: var(--app-bg-inset) !important; }
+.app-bg-input { background-color: var(--app-bg-input) !important; }
+
+.app-border { border-color: var(--app-border) !important; }
+.app-border-light { border-color: var(--app-border-light) !important; }
 
 /* Terminal output */
 .terminal-output {
@@ -69,40 +93,3 @@ body {
   white-space: pre-wrap;
   word-break: break-all;
 }
-
-/* Status badge */
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 10px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-pass {
-  background: rgba(34, 197, 94, 0.15);
-  color: var(--success);
-}
-
-.status-warn {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--warning);
-}
-
-.status-fail {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--error);
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.status-dot.pass { background: var(--success); }
-.status-dot.warn { background: var(--warning); }
-.status-dot.fail { background: var(--error); }

@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
+import { Tabs, TextInput, Textarea, Button, ActionIcon, Group, Stack, Text, Switch } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { IconPlus, IconTrash, IconCheck, IconAlertCircle } from '@tabler/icons-react'
 import type { SystemStatus } from '../types'
 
 interface Props {
   status: SystemStatus | null
   onRefresh: () => Promise<void>
+  settings: any
+  onSettingsChange: (s: any) => void
 }
 
-// Common MCP server presets
 const MCP_PRESETS: Array<{
   name: string
   description: string
@@ -14,176 +18,78 @@ const MCP_PRESETS: Array<{
   args: string[]
   env?: Record<string, string>
 }> = [
-  {
-    name: 'sequential-thinking',
-    description: 'Sequential thinking for complex reasoning',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-sequential-thinking'],
-  },
-  {
-    name: 'playwright',
-    description: 'Browser automation and testing',
-    command: 'npx',
-    args: ['-y', '@playwright/mcp@latest'],
-  },
-  {
-    name: 'memory',
-    description: 'Persistent knowledge graph memory',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-memory'],
-  },
-  {
-    name: 'context7',
-    description: 'Library documentation lookup',
-    command: 'npx',
-    args: ['-y', '@upstash/context7-mcp'],
-  },
-  {
-    name: 'chrome-devtools',
-    description: 'Chrome DevTools Protocol MCP',
-    command: 'npx',
-    args: ['-y', 'chrome-devtools-mcp'],
-  },
-  {
-    name: 'filesystem',
-    description: 'File system access with configurable paths',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-filesystem', '/'],
-  },
-  {
-    name: 'github',
-    description: 'GitHub API integration',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-github'],
-    env: { GITHUB_PERSONAL_ACCESS_TOKEN: '' },
-  },
-  {
-    name: 'tavily',
-    description: 'Web search via Tavily API',
-    command: 'npx',
-    args: ['-y', 'tavily-mcp'],
-    env: { TAVILY_API_KEY: '' },
-  },
+  { name: 'sequential-thinking', description: '复杂推理的顺序思维', command: 'npx', args: ['-y', '@modelcontextprotocol/server-sequential-thinking'] },
+  { name: 'playwright', description: '浏览器自动化和测试', command: 'npx', args: ['-y', '@playwright/mcp@latest'] },
+  { name: 'memory', description: '持久化知识图谱记忆', command: 'npx', args: ['-y', '@modelcontextprotocol/server-memory'] },
+  { name: 'context7', description: '库文档查询', command: 'npx', args: ['-y', '@upstash/context7-mcp'] },
+  { name: 'filesystem', description: '文件系统访问', command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/'] },
+  { name: 'github', description: 'GitHub API', command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'], env: { GITHUB_PERSONAL_ACCESS_TOKEN: '' } },
 ]
 
-export default function Settings({ status, onRefresh }: Props) {
-  const [settings, setSettings] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+export default function Settings({ status, onRefresh, settings, onSettingsChange }: Props) {
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [activeTab, setActiveTab] = useState<'general' | 'mcp' | 'models' | 'env'>('general')
-
-  // MCP server form
+  const [activeTab, setActiveTab] = useState<string | null>('general')
   const [newServerName, setNewServerName] = useState('')
   const [newServerCommand, setNewServerCommand] = useState('npx')
   const [newServerArgs, setNewServerArgs] = useState('')
   const [newServerEnv, setNewServerEnv] = useState('')
 
-  useEffect(() => {
-    loadSettings()
-  }, [])
-
-  const loadSettings = async () => {
-    setLoading(true)
-    try {
-      const { data } = await window.api.readSettings()
-      setSettings(data || { env: {}, mcpServers: {} })
-    } catch (err) {
-      console.error('Failed to load settings:', err)
-    }
-    setLoading(false)
-  }
-
   const saveSettings = async (newSettings: any) => {
     setSaving(true)
-    setMessage(null)
     try {
       const result = await window.api.writeSettings(newSettings)
       if (result.success) {
-        setSettings(newSettings)
-        setMessage({ type: 'success', text: 'Settings saved successfully' })
+        onSettingsChange(newSettings)
+        notifications.show({ title: '成功', message: '设置保存成功', color: 'green', icon: <IconCheck size={16} /> })
         await onRefresh()
       } else {
-        setMessage({ type: 'error', text: 'Failed to save settings' })
+        notifications.show({ title: '失败', message: '保存设置失败', color: 'red', icon: <IconAlertCircle size={16} /> })
       }
-    } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to save settings' })
+    } catch {
+      notifications.show({ title: '失败', message: '保存设置失败', color: 'red', icon: <IconAlertCircle size={16} /> })
     }
     setSaving(false)
-    setTimeout(() => setMessage(null), 3000)
   }
+
+  const updateEnvVar = (key: string, value: string) => {
+    onSettingsChange({ ...settings, env: { ...settings.env, [key]: value } })
+  }
+
+  const saveEnvChanges = () => saveSettings(settings)
 
   const addMcpServer = async () => {
     if (!newServerName.trim()) return
-
-    const config: any = {
-      command: newServerCommand.trim(),
-      args: newServerArgs.trim().split(/\s+/).filter(Boolean),
-    }
-
-    // Parse env variables (KEY=VALUE format, one per line)
+    const config: any = { command: newServerCommand.trim(), args: newServerArgs.trim().split(/\s+/).filter(Boolean) }
     const envLines = newServerEnv.trim().split('\n').filter(Boolean)
     if (envLines.length > 0) {
       config.env = {}
       envLines.forEach((line) => {
         const [key, ...rest] = line.split('=')
-        if (key) {
-          config.env[key.trim()] = rest.join('=').trim()
-        }
+        if (key) config.env[key.trim()] = rest.join('=').trim()
       })
     }
-
-    const updatedSettings = {
-      ...settings,
-      mcpServers: {
-        ...settings.mcpServers,
-        [newServerName.trim()]: config,
-      },
-    }
-
-    await saveSettings(updatedSettings)
+    const updated = { ...settings, mcpServers: { ...settings.mcpServers, [newServerName.trim()]: config } }
+    await saveSettings(updated)
     setNewServerName('')
     setNewServerArgs('')
     setNewServerEnv('')
   }
 
   const addPresetServer = async (preset: typeof MCP_PRESETS[0]) => {
-    const updatedSettings = {
+    const updated = {
       ...settings,
-      mcpServers: {
-        ...settings.mcpServers,
-        [preset.name]: {
-          command: preset.command,
-          args: preset.args,
-          ...(preset.env ? { env: preset.env } : {}),
-        },
-      },
+      mcpServers: { ...settings.mcpServers, [preset.name]: { command: preset.command, args: preset.args, ...(preset.env ? { env: preset.env } : {}) } },
     }
-    await saveSettings(updatedSettings)
+    await saveSettings(updated)
   }
 
   const removeMcpServer = async (name: string) => {
-    const updatedSettings = {
-      ...settings,
-      mcpServers: { ...settings.mcpServers },
-    }
-    delete updatedSettings.mcpServers[name]
-    await saveSettings(updatedSettings)
+    const updated = { ...settings, mcpServers: { ...settings.mcpServers } }
+    delete updated.mcpServers[name]
+    await saveSettings(updated)
   }
 
-  const updateEnvVar = (key: string, value: string) => {
-    const updatedSettings = {
-      ...settings,
-      env: { ...settings.env, [key]: value },
-    }
-    setSettings(updatedSettings)
-  }
-
-  const saveEnvChanges = () => {
-    saveSettings(settings)
-  }
-
-  if (loading) {
+  if (!settings) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
@@ -191,350 +97,154 @@ export default function Settings({ status, onRefresh }: Props) {
     )
   }
 
+  const mcpCount = Object.keys(settings.mcpServers || {}).length
+
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-200 mb-1">Settings</h1>
-          <p className="text-sm text-slate-400">Configure Claude Code, MCP servers, and environment</p>
-        </div>
-        {message && (
-          <span className={`text-sm px-3 py-1 rounded-full ${
-            message.type === 'success' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-          }`}>
-            {message.text}
-          </span>
-        )}
+    <div className="max-w-3xl mx-auto p-6">
+      <div className="mb-6">
+        <Text size="lg" fw={600} className="app-text-primary">设置</Text>
+        <Text size="xs" className="app-text-secondary mt-1">配置 Claude Code、MCP 服务器和环境变量</Text>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-[#334155]">
-        {[
-          { id: 'general' as const, label: 'General' },
-          { id: 'mcp' as const, label: `MCP Servers (${Object.keys(settings?.mcpServers || {}).length})` },
-          { id: 'models' as const, label: 'Models' },
-          { id: 'env' as const, label: 'Environment' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-300'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs value={activeTab} onChange={setActiveTab}>
+        <Tabs.List mb="md">
+          <Tabs.Tab value="general">通用</Tabs.Tab>
+          <Tabs.Tab value="mcp">MCP 服务器 ({mcpCount})</Tabs.Tab>
+          <Tabs.Tab value="models">模型</Tabs.Tab>
+          <Tabs.Tab value="env">环境变量</Tabs.Tab>
+        </Tabs.List>
 
-      {/* General Tab */}
-      {activeTab === 'general' && (
-        <div className="space-y-4">
-          <div className="bg-[#1a1b2e] rounded-lg border border-[#334155] p-4">
-            <h3 className="text-sm font-medium text-slate-300 mb-3">API Configuration</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">API Base URL</label>
-                <input
-                  type="text"
-                  value={settings?.env?.ANTHROPIC_BASE_URL || ''}
-                  onChange={(e) => updateEnvVar('ANTHROPIC_BASE_URL', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#334155] rounded-md text-sm text-slate-300 focus:outline-none focus:border-indigo-500"
-                  placeholder="https://api.anthropic.com"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">API Token</label>
-                <input
-                  type="password"
-                  value={settings?.env?.ANTHROPIC_AUTH_TOKEN || ''}
-                  onChange={(e) => updateEnvVar('ANTHROPIC_AUTH_TOKEN', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#334155] rounded-md text-sm text-slate-300 focus:outline-none focus:border-indigo-500"
-                  placeholder="Enter your API token"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">API Timeout (ms)</label>
-                <input
-                  type="text"
-                  value={settings?.env?.API_TIMEOUT_MS || '30000000'}
-                  onChange={(e) => updateEnvVar('API_TIMEOUT_MS', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#334155] rounded-md text-sm text-slate-300 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            </div>
-            <button
-              onClick={saveEnvChanges}
-              disabled={saving}
-              className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-md transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
+        {/* General Tab */}
+        <Tabs.Panel value="general">
+          <div className="rounded-lg app-bg-secondary p-5">
+            <Text size="sm" fw={500} mb="md">API 配置</Text>
+            <Stack gap="sm">
+              <TextInput label="API 地址" value={settings.env?.ANTHROPIC_BASE_URL || ''} onChange={(e) => updateEnvVar('ANTHROPIC_BASE_URL', e.currentTarget.value)} size="sm" />
+              <TextInput label="API 令牌" type="password" value={settings.env?.ANTHROPIC_AUTH_TOKEN || ''} onChange={(e) => updateEnvVar('ANTHROPIC_AUTH_TOKEN', e.currentTarget.value)} size="sm" />
+              <TextInput label="API 超时时间 (毫秒)" value={settings.env?.API_TIMEOUT_MS || '30000000'} onChange={(e) => updateEnvVar('API_TIMEOUT_MS', e.currentTarget.value)} size="sm" />
+              <Button size="sm" onClick={saveEnvChanges} loading={saving}>保存更改</Button>
+            </Stack>
           </div>
-        </div>
-      )}
+        </Tabs.Panel>
 
-      {/* MCP Servers Tab */}
-      {activeTab === 'mcp' && (
-        <div className="space-y-4">
-          {/* Currently configured servers */}
-          <div className="bg-[#1a1b2e] rounded-lg border border-[#334155]">
-            <div className="px-4 py-3 border-b border-[#334155]">
-              <h3 className="text-sm font-medium text-slate-300">Configured MCP Servers</h3>
-            </div>
-            {Object.keys(settings?.mcpServers || {}).length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-slate-500">
-                No MCP servers configured. Add one below or use a preset.
+        {/* MCP Servers Tab */}
+        <Tabs.Panel value="mcp">
+          <Stack gap="md">
+            <div className="rounded-lg app-bg-secondary">
+              <div className="px-4 py-2.5 border-b app-border">
+                <Text size="sm" fw={500}>已配置的 MCP 服务器</Text>
               </div>
-            ) : (
-              <div className="divide-y divide-[#334155]">
-                {Object.entries(settings?.mcpServers || {}).map(([name, config]: [string, any]) => (
-                  <div key={name} className="px-4 py-3">
-                    <div className="flex items-center justify-between">
+              {Object.keys(settings.mcpServers || {}).length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <Text size="sm" className="app-text-muted">暂未配置 MCP 服务器</Text>
+                </div>
+              ) : (
+                <div>
+                  {Object.entries(settings.mcpServers || {}).map(([name, config]: [string, any]) => (
+                    <div key={name} className="px-4 py-2.5 border-b app-border-light last:border-b-0 flex items-center justify-between">
                       <div>
-                        <span className="text-sm font-medium text-slate-300">{name}</span>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {config.command} {config.args?.join(' ')}
-                        </p>
-                        {config.env && Object.keys(config.env).length > 0 && (
-                          <p className="text-xs text-slate-600 mt-0.5">
-                            Env: {Object.keys(config.env).join(', ')}
-                          </p>
-                        )}
+                        <Text size="sm" fw={500}>{name}</Text>
+                        <Text size="xs" className="app-text-faint">{config.command} {config.args?.join(' ')}</Text>
                       </div>
-                      <button
-                        onClick={() => removeMcpServer(name)}
-                        className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
-                      >
-                        Remove
-                      </button>
+                      <ActionIcon variant="subtle" color="red" size="sm" onClick={() => removeMcpServer(name)}>
+                        <IconTrash size={14} />
+                      </ActionIcon>
                     </div>
-                  </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg app-bg-secondary p-5">
+              <Text size="sm" fw={500} mb="md">添加自定义 MCP 服务器</Text>
+              <Stack gap="sm">
+                <Group grow>
+                  <TextInput label="名称" value={newServerName} onChange={(e) => setNewServerName(e.currentTarget.value)} size="sm" />
+                  <TextInput label="命令" value={newServerCommand} onChange={(e) => setNewServerCommand(e.currentTarget.value)} size="sm" />
+                </Group>
+                <TextInput label="参数（空格分隔）" value={newServerArgs} onChange={(e) => setNewServerArgs(e.currentTarget.value)} size="sm" />
+                <Textarea label="环境变量（KEY=VALUE，每行一个）" value={newServerEnv} onChange={(e) => setNewServerEnv(e.currentTarget.value)} rows={2} size="sm" />
+                <Button size="sm" onClick={addMcpServer} disabled={!newServerName.trim()} leftSection={<IconPlus size={14} />}>添加服务器</Button>
+              </Stack>
+            </div>
+
+            <div className="rounded-lg app-bg-secondary p-5">
+              <Text size="sm" fw={500} mb="md">快速添加预设</Text>
+              <div className="flex flex-wrap gap-2">
+                {MCP_PRESETS.filter((p) => !(settings.mcpServers?.[p.name])).map((preset) => (
+                  <button
+                    key={preset.name}
+                    onClick={() => addPresetServer(preset)}
+                    className="px-3 py-1.5 rounded-lg text-xs transition-colors border app-border app-text-secondary hover:app-bg-tertiary"
+                  >
+                    {preset.name} - {preset.description}
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
+              {MCP_PRESETS.filter((p) => !(settings.mcpServers?.[p.name])).length === 0 && (
+                <Text size="sm" className="app-text-muted" ta="center" py="xs">所有预设均已配置</Text>
+              )}
+            </div>
+          </Stack>
+        </Tabs.Panel>
 
-          {/* Add Custom Server */}
-          <div className="bg-[#1a1b2e] rounded-lg border border-[#334155] p-4">
-            <h3 className="text-sm font-medium text-slate-300 mb-3">Add Custom MCP Server</h3>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Name</label>
-                <input
-                  type="text"
-                  value={newServerName}
-                  onChange={(e) => setNewServerName(e.target.value)}
-                  placeholder="my-server"
-                  className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#334155] rounded-md text-sm text-slate-300 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Command</label>
-                <input
-                  type="text"
-                  value={newServerCommand}
-                  onChange={(e) => setNewServerCommand(e.target.value)}
-                  placeholder="npx"
-                  className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#334155] rounded-md text-sm text-slate-300 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            </div>
-            <div className="mb-3">
-              <label className="block text-xs text-slate-400 mb-1">Arguments (space-separated)</label>
-              <input
-                type="text"
-                value={newServerArgs}
-                onChange={(e) => setNewServerArgs(e.target.value)}
-                placeholder="-y @modelcontextprotocol/server-memory"
-                className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#334155] rounded-md text-sm text-slate-300 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div className="mb-3">
-              <label className="block text-xs text-slate-400 mb-1">Environment Variables (KEY=VALUE, one per line)</label>
-              <textarea
-                value={newServerEnv}
-                onChange={(e) => setNewServerEnv(e.target.value)}
-                placeholder={"API_KEY=your-key\nOTHER=value"}
-                rows={2}
-                className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#334155] rounded-md text-sm text-slate-300 focus:outline-none focus:border-indigo-500 resize-none"
-              />
-            </div>
-            <button
-              onClick={addMcpServer}
-              disabled={!newServerName.trim()}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-md transition-colors disabled:opacity-50"
-            >
-              Add Server
-            </button>
-          </div>
-
-          {/* Presets */}
-          <div className="bg-[#1a1b2e] rounded-lg border border-[#334155] p-4">
-            <h3 className="text-sm font-medium text-slate-300 mb-3">Quick Add Presets</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {MCP_PRESETS.filter((p) => !(settings?.mcpServers?.[p.name])).map((preset) => (
-                <button
-                  key={preset.name}
-                  onClick={() => addPresetServer(preset)}
-                  className="flex items-center gap-2 px-3 py-2 bg-[#0f0f1a] hover:bg-[#151627] border border-[#334155] rounded-md text-left transition-colors"
-                >
-                  <span className="text-sm text-slate-300">{preset.name}</span>
-                  <span className="text-xs text-slate-500 truncate">{preset.description}</span>
-                </button>
-              ))}
-            </div>
-            {MCP_PRESETS.filter((p) => !(settings?.mcpServers?.[p.name])).length === 0 && (
-              <p className="text-sm text-slate-500 text-center py-2">All presets are already configured</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Models Tab */}
-      {activeTab === 'models' && (
-        <div className="space-y-4">
-          <div className="bg-[#1a1b2e] rounded-lg border border-[#334155] p-4">
-            <h3 className="text-sm font-medium text-slate-300 mb-3">Model Configuration</h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Configure which AI models Claude Code uses for different tasks. These map to the model tiers used by Claude Code internally.
-            </p>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Fast Model (Haiku tier)</label>
-                <input
-                  type="text"
-                  value={settings?.env?.ANTHROPIC_DEFAULT_HAIKU_MODEL || ''}
-                  onChange={(e) => updateEnvVar('ANTHROPIC_DEFAULT_HAIKU_MODEL', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#334155] rounded-md text-sm text-slate-300 focus:outline-none focus:border-indigo-500"
-                  placeholder="claude-3-5-haiku-20241022"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Standard Model (Sonnet tier)</label>
-                <input
-                  type="text"
-                  value={settings?.env?.ANTHROPIC_DEFAULT_SONNET_MODEL || ''}
-                  onChange={(e) => updateEnvVar('ANTHROPIC_DEFAULT_SONNET_MODEL', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#334155] rounded-md text-sm text-slate-300 focus:outline-none focus:border-indigo-500"
-                  placeholder="claude-sonnet-4-20250514"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Powerful Model (Opus tier)</label>
-                <input
-                  type="text"
-                  value={settings?.env?.ANTHROPIC_DEFAULT_OPUS_MODEL || ''}
-                  onChange={(e) => updateEnvVar('ANTHROPIC_DEFAULT_OPUS_MODEL', e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0f0f1a] border border-[#334155] rounded-md text-sm text-slate-300 focus:outline-none focus:border-indigo-500"
-                  placeholder="claude-opus-4-20250514"
-                />
-              </div>
-            </div>
-            <div className="mt-4 flex gap-3">
-              <button
-                onClick={saveEnvChanges}
-                disabled={saving}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-md transition-colors disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-              <button
-                onClick={() => {
-                  const glmDefaults = {
+        {/* Models Tab */}
+        <Tabs.Panel value="models">
+          <div className="rounded-lg app-bg-secondary p-5">
+            <Text size="sm" fw={500} mb="xs">模型配置</Text>
+            <Text size="xs" className="app-text-secondary mb-4">配置 Claude Code 在不同任务中使用的 AI 模型。</Text>
+            <Stack gap="sm">
+              <TextInput label="快速模型（Haiku 层级）" value={settings.env?.ANTHROPIC_DEFAULT_HAIKU_MODEL || ''} onChange={(e) => updateEnvVar('ANTHROPIC_DEFAULT_HAIKU_MODEL', e.currentTarget.value)} size="sm" />
+              <TextInput label="标准模型（Sonnet 层级）" value={settings.env?.ANTHROPIC_DEFAULT_SONNET_MODEL || ''} onChange={(e) => updateEnvVar('ANTHROPIC_DEFAULT_SONNET_MODEL', e.currentTarget.value)} size="sm" />
+              <TextInput label="强力模型（Opus 层级）" value={settings.env?.ANTHROPIC_DEFAULT_OPUS_MODEL || ''} onChange={(e) => updateEnvVar('ANTHROPIC_DEFAULT_OPUS_MODEL', e.currentTarget.value)} size="sm" />
+              <Group>
+                <Button size="sm" onClick={saveEnvChanges} loading={saving}>保存更改</Button>
+                <Button size="sm" variant="default" color="dark" onClick={() => {
+                  onSettingsChange({
                     ...settings,
-                    env: {
-                      ...settings.env,
-                      ANTHROPIC_BASE_URL: 'https://open.bigmodel.cn/api/anthropic',
-                      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'glm-4.5-air',
-                      ANTHROPIC_DEFAULT_SONNET_MODEL: 'glm-5-turbo',
-                      ANTHROPIC_DEFAULT_OPUS_MODEL: 'glm-5.1',
-                    },
-                  }
-                  setSettings(glmDefaults)
-                }}
-                className="px-4 py-2 bg-[#252640] hover:bg-[#2d2e4a] text-slate-400 text-sm rounded-md border border-[#334155] transition-colors"
-              >
-                Use GLM Defaults
-              </button>
-              <button
-                onClick={() => {
-                  const claudeDefaults = {
-                    ...settings,
-                    env: {
-                      ...settings.env,
-                      ANHROPIC_BASE_URL: 'https://api.anthropic.com',
-                      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-3-5-haiku-20241022',
-                      ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-20250514',
-                      ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-20250514',
-                    },
-                  }
-                  setSettings(claudeDefaults)
-                }}
-                className="px-4 py-2 bg-[#252640] hover:bg-[#2d2e4a] text-slate-400 text-sm rounded-md border border-[#334155] transition-colors"
-              >
-                Use Claude Defaults
-              </button>
-            </div>
+                    env: { ...settings.env, ANTHROPIC_BASE_URL: 'https://open.bigmodel.cn/api/anthropic', ANTHROPIC_DEFAULT_HAIKU_MODEL: 'glm-4.5-air', ANTHROPIC_DEFAULT_SONNET_MODEL: 'glm-5-turbo', ANTHROPIC_DEFAULT_OPUS_MODEL: 'glm-5.1' },
+                  })
+                }}>GLM 默认值</Button>
+              </Group>
+            </Stack>
           </div>
-        </div>
-      )}
+        </Tabs.Panel>
 
-      {/* Environment Tab */}
-      {activeTab === 'env' && (
-        <div className="space-y-4">
-          <div className="bg-[#1a1b2e] rounded-lg border border-[#334155] p-4">
-            <h3 className="text-sm font-medium text-slate-300 mb-3">Environment Variables</h3>
-            <p className="text-xs text-slate-400 mb-4">
-              These environment variables are set when Claude Code runs.
-            </p>
-            <div className="space-y-2">
-              {Object.entries(settings?.env || {}).map(([key, value]) => (
-                <div key={key} className="flex items-center gap-3">
-                  <label className="text-xs text-slate-400 w-64 shrink-0 font-mono">{key}</label>
-                  <input
-                    type={key.includes('TOKEN') || key.includes('KEY') || key.includes('SECRET') ? 'password' : 'text'}
-                    value={value as string}
-                    onChange={(e) => updateEnvVar(key, e.target.value)}
-                    className="flex-1 px-3 py-1.5 bg-[#0f0f1a] border border-[#334155] rounded-md text-sm text-slate-300 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              ))}
+        {/* Environment Tab */}
+        <Tabs.Panel value="env">
+          <Stack gap="md">
+            <div className="rounded-lg app-bg-secondary p-5">
+              <Text size="sm" fw={500} mb="md">环境变量</Text>
+              <Stack gap="xs">
+                {Object.entries(settings.env || {}).map(([key, value]) => (
+                  <Group key={key} wrap="nowrap">
+                    <Text size="xs" className="app-text-muted font-mono" w={240} style={{ flexShrink: 0 }} truncate>{key}</Text>
+                    <TextInput
+                      type={key.includes('TOKEN') || key.includes('KEY') || key.includes('SECRET') ? 'password' : 'text'}
+                      value={value as string}
+                      onChange={(e) => updateEnvVar(key, e.currentTarget.value)}
+                      size="xs"
+                      flex={1}
+                    />
+                  </Group>
+                ))}
+              </Stack>
+              <Button size="sm" mt="md" onClick={saveEnvChanges} loading={saving}>保存更改</Button>
             </div>
-            <button
-              onClick={saveEnvChanges}
-              disabled={saving}
-              className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-md transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
 
-          <div className="bg-[#1a1b2e] rounded-lg border border-[#334155] p-4">
-            <h3 className="text-sm font-medium text-slate-300 mb-3">Experimental Features</h3>
-            <div className="space-y-2">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={settings?.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === '1'}
-                  onChange={(e) => updateEnvVar('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS', e.target.checked ? '1' : '0')}
-                  className="w-4 h-4 rounded border-[#334155] bg-[#0f0f1a] text-indigo-500 focus:ring-indigo-500"
-                />
-                <span className="text-sm text-slate-300">Agent Teams (multi-agent collaboration)</span>
-              </label>
+            <div className="rounded-lg app-bg-secondary p-5">
+              <Text size="sm" fw={500} mb="md">实验性功能</Text>
+              <Switch
+                label="Agent Teams（多智能体协作）"
+                checked={settings.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === '1'}
+                onChange={(e) => updateEnvVar('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS', e.currentTarget.checked ? '1' : '0')}
+                size="sm"
+              />
+              <Button size="sm" mt="md" onClick={saveEnvChanges} loading={saving}>保存更改</Button>
             </div>
-            <button
-              onClick={saveEnvChanges}
-              disabled={saving}
-              className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-md transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </div>
-      )}
+          </Stack>
+        </Tabs.Panel>
+      </Tabs>
     </div>
   )
 }
