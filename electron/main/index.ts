@@ -1,6 +1,10 @@
 import { app, BrowserWindow, shell, Tray, Menu, nativeImage } from 'electron'
-import { join } from 'path'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { registerIpcHandlers } from './ipc-handlers'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -33,7 +37,7 @@ function createWindow() {
     trafficLightPosition: { x: 16, y: 18 },
     backgroundColor: '#0f0f11',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, 'preload/index.js'),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,

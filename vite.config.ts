@@ -12,6 +12,20 @@ export default defineConfig({
       },
       preload: {
         input: 'electron/preload/index.ts',
+        vite: {
+          build: {
+            outDir: 'dist-electron/preload',
+            rollupOptions: {
+              input: 'electron/preload/index.ts',
+              external: ['electron'],
+              output: {
+                format: 'cjs',
+                inlineDynamicImports: true,
+                entryFileNames: 'index.js',
+              },
+            },
+          },
+        },
       },
     }),
   ],
