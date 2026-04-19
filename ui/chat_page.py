@@ -52,7 +52,7 @@ class ChatWorker(QThread):
             self._process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
                 env=env,
                 cwd=os.getcwd(),
@@ -95,11 +95,7 @@ class ChatWorker(QThread):
             self._process.wait(timeout=10)
 
             if self._process.returncode and self._process.returncode != 0:
-                stderr = ""
-                if self._process.stderr:
-                    stderr = self._process.stderr.read().strip()
-                if stderr:
-                    self.error_occurred.emit(f"Claude Code 退出 ({self._process.returncode}): {stderr[:200]}")
+                self.error_occurred.emit(f"Claude Code 退出 ({self._process.returncode})")
 
         except Exception as e:
             self.error_occurred.emit(f"启动失败: {e}")
@@ -151,6 +147,7 @@ class ChatPage(QWidget):
         self._session_id: str | None = None
         self._worker: ChatWorker | None = None
         self._is_responding = False
+        self._empty_state_connected = False
         self._typing_dots_timer = QTimer(self)
         self._typing_dots_timer.timeout.connect(self._update_typing_dots)
         self._typing_dots_count = 0
@@ -250,9 +247,9 @@ class ChatPage(QWidget):
             escaped = self._escape(prompt)
             prompt_buttons += f"""
                 <div style="margin: 8px 0; text-align: center;">
-                    <span style="color: {TEXT_MUTED}; border: 1px solid {BORDER_LIGHT};
-                        padding: 6px 16px; border-radius: 6px; cursor: pointer;
-                        font-size: 12px;">{escaped}</span>
+                    <a href="{escaped}" style="color: {TEXT_MUTED}; border: 1px solid {BORDER_LIGHT};
+                        padding: 6px 16px; border-radius: 6px; text-decoration: none;
+                        font-size: 12px;">{escaped}</a>
                 </div>
             """
         self._messages.setHtml(f"""
@@ -264,8 +261,10 @@ class ChatPage(QWidget):
                 {prompt_buttons}
             </div>
         """)
-        # Handle click on suggested prompts
-        self._messages.anchorClicked.connect(self._on_suggested_prompt)
+        # Handle click on suggested prompts (connect only once)
+        if not self._empty_state_connected:
+            self._messages.anchorClicked.connect(self._on_suggested_prompt)
+            self._empty_state_connected = True
 
     def _on_suggested_prompt(self, url):
         text = url.toString().strip()
@@ -362,7 +361,12 @@ class ChatPage(QWidget):
 
         # Clear empty state on first message
         if not self._session_id:
-            self._messages.anchorClicked.disconnect(self._on_suggested_prompt)
+            if self._empty_state_connected:
+                try:
+                    self._messages.anchorClicked.disconnect(self._on_suggested_prompt)
+                except RuntimeError:
+                    pass
+                self._empty_state_connected = False
             self._messages.clear()
 
         self._input.clear()

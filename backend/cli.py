@@ -235,7 +235,10 @@ def install_claude_code() -> dict:
                 capture_output=True, text=True, timeout=600,
                 env={**os.environ, "PATH": get_augmented_path(), "NODE_OPTIONS": "--max-old-space-size=4096"},
             )
-            return {"success": True, "message": f"Claude Code installed: {result.stdout.strip()}"}
+            if result.returncode == 0:
+                return {"success": True, "message": f"Claude Code installed: {result.stdout.strip()}"}
+            if registry == mirrors[-1]:
+                return {"success": False, "message": f"Claude Code install failed (exit {result.returncode}): {result.stderr.strip()[:200]}"}
         except Exception:
             if registry == mirrors[-1]:
                 return {"success": False, "message": "Claude Code installation failed"}

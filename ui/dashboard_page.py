@@ -253,6 +253,8 @@ class DashboardPage(QWidget):
         self._refresh_btn.setEnabled(True)
 
     def _on_doctor(self):
+        if hasattr(self, "_worker") and self._worker.isRunning():
+            return
         self._doctor_output.setVisible(True)
         self._doctor_output.setText("正在运行诊断...")
         self._doctor_lines = []

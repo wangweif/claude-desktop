@@ -30,6 +30,7 @@ class SettingsPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._settings: dict = {}
+        self._env_fields: dict[str, QLineEdit] = {}
         self._build_ui()
 
     def set_settings(self, settings: dict):
