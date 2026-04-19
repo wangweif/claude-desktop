@@ -95,6 +95,10 @@ def refresh_environment() -> None:
     _augmented_path = None
 
 
+def get_claude_path() -> str | None:
+    return which("claude")
+
+
 def which(cmd: str) -> str | None:
     aug = get_augmented_path()
     sep = ";" if is_win else ":"

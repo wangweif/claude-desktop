@@ -11,6 +11,7 @@ from .welcome_page import WelcomePage
 from .env_check_page import EnvCheckPage
 from .dashboard_page import DashboardPage
 from .settings_page import SettingsPage
+from .chat_page import ChatPage
 from .setup_wizard import SetupWizard
 
 
@@ -37,6 +38,7 @@ class MainLayout(QWidget):
         self._nav_buttons: list[tuple[QPushButton, str]] = []
         nav_items = [
             ("🏠 面板", "dashboard"),
+            ("💬 对话", "chat"),
             ("⚙ 设置", "settings"),
         ]
         for label, key in nav_items:
@@ -234,6 +236,38 @@ class AppWindow(QWidget):
 
         self._main_layout.set_active_nav("dashboard")
 
+    def _show_chat(self):
+        self._clear()
+        self._current_page = "chat"
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # Titlebar
+        bar = QWidget()
+        bar.setFixedHeight(32)
+        bar.setStyleSheet(f"border-bottom: 1px solid {BORDER};")
+        bar_layout = QHBoxLayout(bar)
+        bar_layout.setContentsMargins(0, 0, 0, 0)
+        logo = QLabel("🖥")
+        logo.setStyleSheet("font-size: 14px;")
+        bar_layout.addWidget(logo)
+        title = QLabel("Claude Desktop")
+        title.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px; font-weight: 500;")
+        bar_layout.addWidget(title)
+        bar_layout.addStretch()
+        layout.addWidget(bar)
+
+        main = MainLayout(self)
+        self._main_layout = main
+        layout.addWidget(main, 1)
+        self._root_layout.addLayout(layout)
+
+        self._chat_page = ChatPage()
+        self._main_layout.replace_content(self._chat_page)
+        self._main_layout.set_active_nav("chat")
+
     def _show_settings(self):
         self._clear()
         self._current_page = "settings"
@@ -272,12 +306,12 @@ class AppWindow(QWidget):
         self._main_layout.set_active_nav("settings")
 
     def navigate(self, page: str):
-        if page == "dashboard" and self._current_page == "dashboard":
-            return
-        if page == "settings" and self._current_page == "settings":
+        if page == self._current_page:
             return
         if page == "dashboard":
             self._show_dashboard()
+        elif page == "chat":
+            self._show_chat()
         elif page == "settings":
             self._show_settings()
 
