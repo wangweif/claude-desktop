@@ -39,7 +39,7 @@ class MainLayout(QWidget):
         nav_items = [
             ("🏠 面板", "dashboard"),
             ("💬 对话", "chat"),
-            ("⚙ 设置", "settings"),
+            ("⚙️ 设置", "settings"),
         ]
         for label, key in nav_items:
             btn = QPushButton(label)
@@ -59,13 +59,13 @@ class MainLayout(QWidget):
     def set_active_nav(self, key: str):
         for btn, k in self._nav_buttons:
             if k == key:
-                btn.setProperty("nav", "active")
-                btn.style().unpolish(btn)
-                btn.style().polish(btn)
+                btn.setStyleSheet(
+                    f"background-color: #b85818; color: {BRAND_HOVER}; "
+                    f"border: none; border-radius: 8px; padding: 8px 12px; "
+                    f"text-align: left; font-size: 13px;"
+                )
             else:
-                btn.setProperty("nav", True)
-                btn.style().unpolish(btn)
-                btn.style().polish(btn)
+                btn.setStyleSheet("")
 
     def get_content_layout(self) -> QVBoxLayout:
         return self._content_layout

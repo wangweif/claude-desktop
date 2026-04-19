@@ -4,15 +4,16 @@ import json
 import os
 import subprocess
 
-from PySide6.QtCore import Qt, Signal, QThread
+import markdown
+from PySide6.QtCore import Qt, QTimer, Signal, QThread
 from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QLineEdit, QPushButton, QTextBrowser,
     QVBoxLayout, QWidget,
 )
 from backend import cli
 from .theme import (
-    BG_SECONDARY, BG_TERTIARY, BORDER, BORDER_LIGHT, BRAND, BRAND_BG,
-    TEXT_MUTED, TEXT_SECONDARY, TEXT_PRIMARY, TEXT_FAINT, TEXT_WARNING,
+    BG_PRIMARY, BG_SECONDARY, BG_TERTIARY, BORDER, BORDER_LIGHT, BRAND, BRAND_BG,
+    TEXT_MUTED, TEXT_SECONDARY, TEXT_PRIMARY, TEXT_FAINT, TEXT_DANGER,
 )
 
 
@@ -87,7 +88,7 @@ class ChatWorker(QThread):
                             name = block.get("name", "unknown")
                             inp = block.get("input", {})
                             summary = self._tool_summary(name, inp)
-                            self.tool_used.emit(f"🔧 {name}: {summary}")
+                            self.tool_used.emit(f"{name}: {summary}")
                 elif msg_type == "result":
                     self.response_complete.emit(data)
 
@@ -139,11 +140,21 @@ class ChatPage(QWidget):
 
     navigate_settings = Signal()
 
+    SUGGESTED_PROMPTS = [
+        "帮我检查一下这个项目的代码",
+        "解释一下这个项目的架构",
+        "帮我写一个 Python 脚本",
+    ]
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._session_id: str | None = None
         self._worker: ChatWorker | None = None
         self._is_responding = False
+        self._typing_dots_timer = QTimer(self)
+        self._typing_dots_timer.timeout.connect(self._update_typing_dots)
+        self._typing_dots_count = 0
+        self._typing_html_id = ""
         self._build_ui()
 
     def _build_ui(self):
@@ -164,11 +175,16 @@ class ChatPage(QWidget):
         self._new_btn.clicked.connect(self._new_conversation)
         header.addWidget(self._new_btn)
 
-        # Cost label
         self._cost_label = QLabel("")
         self._cost_label.setStyleSheet(f"color: {TEXT_FAINT}; font-size: 11px;")
         header.addWidget(self._cost_label)
         layout.addLayout(header)
+
+        # Separator
+        sep = QLabel()
+        sep.setFixedHeight(1)
+        sep.setStyleSheet(f"background-color: {BORDER};")
+        layout.addWidget(sep)
 
         # Message area
         self._messages = QTextBrowser()
@@ -182,6 +198,21 @@ class ChatPage(QWidget):
                 color: {TEXT_PRIMARY};
                 font-size: 13px;
                 line-height: 1.5;
+            }}
+            QTextBrowser code {{
+                background-color: {BG_PRIMARY};
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-family: "SF Mono", "Menlo", monospace;
+                font-size: 12px;
+            }}
+            QTextBrowser pre {{
+                background-color: {BG_PRIMARY};
+                padding: 10px 14px;
+                border-radius: 6px;
+                font-family: "SF Mono", "Menlo", monospace;
+                font-size: 12px;
+                overflow-x: auto;
             }}
         """)
         layout.addWidget(self._messages, 1)
@@ -210,42 +241,66 @@ class ChatPage(QWidget):
 
         layout.addLayout(input_row)
 
-        # Empty state
+        # Empty state with suggested prompts
+        self._show_empty_state()
+
+    def _show_empty_state(self):
+        prompt_buttons = ""
+        for prompt in self.SUGGESTED_PROMPTS:
+            escaped = self._escape(prompt)
+            prompt_buttons += f"""
+                <div style="margin: 8px 0; text-align: center;">
+                    <span style="color: {TEXT_MUTED}; border: 1px solid {BORDER_LIGHT};
+                        padding: 6px 16px; border-radius: 6px; cursor: pointer;
+                        font-size: 12px;">{escaped}</span>
+                </div>
+            """
         self._messages.setHtml(f"""
             <div style="text-align:center; padding: 60px 20px; color: {TEXT_MUTED};">
-                <div style="font-size: 32px; margin-bottom: 12px;">💬</div>
-                <div style="font-size: 14px;">开始与 Claude Code 对话</div>
-                <div style="font-size: 12px; margin-top: 6px; color: {TEXT_FAINT};">
-                    在下方输入消息，Claude 会实时回复
+                <div style="font-size: 14px; margin-bottom: 8px;">开始与 Claude Code 对话</div>
+                <div style="font-size: 12px; color: {TEXT_FAINT}; margin-bottom: 24px;">
+                    在下方输入消息，或选择一个建议开始
                 </div>
+                {prompt_buttons}
             </div>
         """)
+        # Handle click on suggested prompts
+        self._messages.anchorClicked.connect(self._on_suggested_prompt)
+
+    def _on_suggested_prompt(self, url):
+        text = url.toString().strip()
+        if text:
+            self._input.setText(text)
+            self._send_message()
 
     def _append_message(self, role: str, content: str):
         if role == "user":
             html = f"""
                 <div style="margin: 12px 0; text-align: right;">
-                    <span style="display: inline-block; background-color: {BRAND_BG};
-                        color: {BRAND}; padding: 8px 14px; border-radius: 10px 10px 2px 10px;
+                    <span style="display: inline-block; background-color: {BG_TERTIARY};
+                        color: {TEXT_PRIMARY}; padding: 8px 14px;
+                        border-radius: 10px 10px 2px 10px;
                         max-width: 80%; text-align: left; font-size: 13px;">
                         {self._escape(content)}
                     </span>
                 </div>
             """
         else:
+            rendered = markdown.markdown(
+                content, extensions=["fenced_code", "tables", "codehilite"]
+            )
             html = f"""
                 <div style="margin: 12px 0;">
                     <span style="display: inline-block; background-color: {BG_TERTIARY};
-                        color: {TEXT_PRIMARY}; padding: 8px 14px; border-radius: 10px 10px 10px 2px;
-                        max-width: 80%; font-size: 13px; white-space: pre-wrap;">
-                        {self._escape(content)}
+                        color: {TEXT_PRIMARY}; padding: 8px 14px;
+                        border-radius: 10px 10px 10px 2px;
+                        max-width: 80%; font-size: 13px;">
+                        {rendered}
                     </span>
                 </div>
             """
         self._messages.append(html)
-        self._messages.verticalScrollBar().setValue(
-            self._messages.verticalScrollBar().maximum()
-        )
+        self._scroll_to_bottom()
 
     def _append_tool(self, summary: str):
         html = f"""
@@ -256,22 +311,49 @@ class ChatPage(QWidget):
             </div>
         """
         self._messages.append(html)
-        self._messages.verticalScrollBar().setValue(
-            self._messages.verticalScrollBar().maximum()
-        )
+        self._scroll_to_bottom()
 
     def _append_error(self, msg: str):
         html = f"""
             <div style="margin: 8px 0; padding: 8px 12px;
-                background-color: rgba(248,113,113,0.1); border-left: 3px solid #f87171;
-                border-radius: 4px;">
-                <span style="color: #f87171; font-size: 12px;">⚠ {self._escape(msg)}</span>
+                background-color: rgba(248,113,113,0.08);
+                border-radius: 6px;">
+                <span style="color: {TEXT_DANGER}; font-size: 12px;">
+                    {self._escape(msg)}
+                </span>
             </div>
         """
         self._messages.append(html)
-        self._messages.verticalScrollBar().setValue(
-            self._messages.verticalScrollBar().maximum()
-        )
+        self._scroll_to_bottom()
+
+    def _show_typing_indicator(self):
+        self._typing_dots_count = 0
+        self._typing_html_id = f"typing-{id(self)}"
+        self._typing_dots_timer.start(400)
+        self._update_typing_dots()
+
+    def _hide_typing_indicator(self):
+        self._typing_dots_timer.stop()
+
+    def _update_typing_dots(self):
+        self._typing_dots_count = (self._typing_dots_count % 3) + 1
+        dots = "." * self._typing_dots_count
+        cursor = self._messages.textCursor()
+        # Find and remove previous typing indicator
+        doc = self._messages.document()
+        block = doc.findBlockByText(f"typing-dot-marker")
+        if block.isValid():
+            cursor.setPosition(block.position(), cursor.MoveMode.MoveAnchor)
+            cursor.movePosition(cursor.MoveOperation.EndOfBlock, cursor.MoveMode.KeepAnchor)
+            cursor.removeSelectedText()
+        self._messages.append(f"""
+            <div id="{self._typing_html_id}" style="margin: 8px 0; padding-left: 4px;">
+                <span style="color: {TEXT_MUTED}; font-size: 14px; letter-spacing: 2px;">
+                    {dots}
+                </span>
+            </div>
+        """)
+        self._scroll_to_bottom()
 
     def _send_message(self):
         text = self._input.text().strip()
@@ -280,11 +362,13 @@ class ChatPage(QWidget):
 
         # Clear empty state on first message
         if not self._session_id:
+            self._messages.anchorClicked.disconnect(self._on_suggested_prompt)
             self._messages.clear()
 
         self._input.clear()
         self._append_message("user", text)
         self._set_responding(True)
+        self._show_typing_indicator()
 
         self._worker = ChatWorker(text, self._session_id, parent=self)
         self._worker.token_received.connect(self._on_token)
@@ -295,12 +379,15 @@ class ChatPage(QWidget):
         self._worker.start()
 
     def _on_token(self, text: str):
+        self._hide_typing_indicator()
         self._append_message("assistant", text)
 
     def _on_tool(self, summary: str):
+        self._hide_typing_indicator()
         self._append_tool(summary)
 
     def _on_complete(self, result: dict):
+        self._hide_typing_indicator()
         sid = result.get("session_id")
         if sid:
             self._session_id = sid
@@ -309,31 +396,27 @@ class ChatPage(QWidget):
             self._cost_label.setText(f"${cost:.4f}")
 
     def _on_error(self, msg: str):
+        self._hide_typing_indicator()
         self._append_error(msg)
 
     def _on_worker_finished(self):
+        self._hide_typing_indicator()
         self._set_responding(False)
 
     def _stop_response(self):
         if self._worker:
             self._worker.stop()
+            self._hide_typing_indicator()
             self._append_message("assistant", "（已停止）")
 
     def _new_conversation(self):
         if self._worker and self._is_responding:
             self._worker.stop()
+        self._hide_typing_indicator()
         self._session_id = None
         self._cost_label.setText("")
         self._messages.clear()
-        self._messages.setHtml(f"""
-            <div style="text-align:center; padding: 60px 20px; color: {TEXT_MUTED};">
-                <div style="font-size: 32px; margin-bottom: 12px;">💬</div>
-                <div style="font-size: 14px;">开始与 Claude Code 对话</div>
-                <div style="font-size: 12px; margin-top: 6px; color: {TEXT_FAINT};">
-                    在下方输入消息，Claude 会实时回复
-                </div>
-            </div>
-        """)
+        self._show_empty_state()
         self._set_responding(False)
 
     def _set_responding(self, responding: bool):
@@ -347,6 +430,11 @@ class ChatPage(QWidget):
         else:
             self._input.setPlaceholderText("输入消息...")
             self._input.setFocus()
+
+    def _scroll_to_bottom(self):
+        self._messages.verticalScrollBar().setValue(
+            self._messages.verticalScrollBar().maximum()
+        )
 
     @staticmethod
     def _escape(text: str) -> str:

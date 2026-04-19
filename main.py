@@ -14,6 +14,9 @@ def main():
     qt_app = QApplication(sys.argv)
     qt_app.setStyle("Fusion")
 
+    from ui.theme import CheckboxStyle
+    qt_app.setStyle(CheckboxStyle("Fusion"))
+
     from ui.app_window import AppWindow
     window = AppWindow()
     window.show()

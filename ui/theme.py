@@ -1,5 +1,42 @@
 """Dark theme color constants matching the original Electron app."""
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPen
+from PySide6.QtWidgets import QProxyStyle, QStyle
+
+
+class CheckboxStyle(QProxyStyle):
+    """Draws a checkmark inside checked QCheckBox indicators."""
+
+    def drawPrimitive(self, element, option, painter, widget=None):
+        if element == QStyle.PrimitiveElement.PE_IndicatorCheckBox:
+            super().drawPrimitive(element, option, painter, widget)
+            if option.state & QStyle.StateFlag.State_On:
+                painter.save()
+                pen = QPen(QColor("#ffffff"), 2)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                painter.setPen(pen)
+                r = option.rect.adjusted(4, 4, -4, -4)
+                painter.drawLine(r.left(), r.center().y(), r.center().x() - 1, r.bottom())
+                painter.drawLine(r.center().x() - 1, r.bottom(), r.right(), r.top())
+                painter.restore()
+        elif element == QStyle.PrimitiveElement.PE_IndicatorItemViewItemCheck:
+            super().drawPrimitive(element, option, painter, widget)
+            if option.state & QStyle.StateFlag.State_On:
+                painter.save()
+                pen = QPen(QColor("#ffffff"), 2)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                painter.setPen(pen)
+                r = option.rect.adjusted(4, 4, -4, -4)
+                painter.drawLine(r.left(), r.center().y(), r.center().x() - 1, r.bottom())
+                painter.drawLine(r.center().x() - 1, r.bottom(), r.right(), r.top())
+                painter.restore()
+        else:
+            super().drawPrimitive(element, option, painter, widget)
+
+
 # Background colors
 BG_PRIMARY = "#0f0f11"
 BG_SECONDARY = "#1c1c1f"
@@ -23,9 +60,9 @@ BORDER = "#27272a"
 BORDER_LIGHT = "#3f3f46"
 
 # Brand / accent
-BRAND = "#6366f1"
-BRAND_HOVER = "#818cf8"
-BRAND_BG = "#1e1b4b"
+BRAND = "#f97316"
+BRAND_HOVER = "#fb923c"
+BRAND_BG = "#3b1a04"
 
 # Status colors
 SUCCESS = "#20c997"
@@ -108,7 +145,7 @@ QPushButton:hover {{
     background-color: {BRAND_HOVER};
 }}
 QPushButton:pressed {{
-    background-color: #4f46e5;
+    background-color: #ea580c;
 }}
 QPushButton:disabled {{
     background-color: {BG_TERTIARY};
@@ -197,6 +234,10 @@ QCheckBox::indicator:checked {{
     background-color: {BRAND};
     border-color: {BRAND};
 }}
+QCheckBox::indicator:checked:hover {{
+    background-color: {BRAND_HOVER};
+    border-color: {BRAND_HOVER};
+}}
 
 /* Label variants */
 QLabel[heading="true"] {{
@@ -252,7 +293,7 @@ QPushButton[nav="true"]:hover {{
     color: {TEXT_SECONDARY};
 }}
 QPushButton[nav="active"] {{
-    background-color: {BRAND_BG};
+    background-color: #7a3d15;
     color: {BRAND_HOVER};
 }}
 
