@@ -3,11 +3,12 @@
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (
     QCheckBox, QFrame, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QScrollArea, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
+    QPushButton, QScrollArea, QTabWidget, QTextBrowser, QTextEdit, QVBoxLayout, QWidget,
 )
 from backend import cli
+from backend.app_metadata import get_latest_release_notes
 from .theme import (
-    BG_SECONDARY, BORDER, BORDER_LIGHT, TEXT_MUTED, TEXT_SECONDARY,
+    BG_SECONDARY, BORDER, BORDER_LIGHT, TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY,
     TEXT_FAINT, TEXT_SUCCESS, TEXT_DANGER,
 )
 
@@ -55,6 +56,7 @@ class SettingsPage(QWidget):
         self._build_mcp_tab()
         self._build_models_tab()
         self._build_env_tab()
+        self._build_about_tab()
         layout.addWidget(self._tabs)
 
     def _make_section(self, title: str, parent_widget: QWidget) -> QVBoxLayout:
@@ -218,6 +220,44 @@ class SettingsPage(QWidget):
 
         layout.addStretch()
         self._tabs.addTab(tab, "环境变量")
+
+    def _build_about_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 12, 0, 0)
+        layout.setSpacing(16)
+
+        hint = QLabel("版本与变更说明来自仓库根目录的 CHANGELOG.md；仅展示文件中**最上方**即最新一条版本。")
+        hint.setWordWrap(True)
+        hint.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px;")
+        layout.addWidget(hint)
+
+        version, body = get_latest_release_notes()
+
+        section_ver = self._make_section("本软件版本", tab)
+        ver_lbl = QLabel(version if version else "—")
+        ver_lbl.setStyleSheet(f"color: {TEXT_PRIMARY}; font-size: 15px; font-weight: 600; font-family: ui-monospace, monospace;")
+        section_ver.addWidget(ver_lbl)
+
+        section_notes = self._make_section("本版本变更记录", tab)
+        browser = QTextBrowser()
+        browser.setReadOnly(True)
+        browser.setOpenExternalLinks(True)
+        browser.setStyleSheet(
+            f"QTextBrowser {{ background-color: {BG_SECONDARY}; border: 1px solid {BORDER}; "
+            f"border-radius: 8px; padding: 12px; color: {TEXT_PRIMARY}; font-size: 13px; }}"
+        )
+        browser.setMinimumHeight(220)
+        if body:
+            browser.setMarkdown(body)
+        else:
+            browser.setPlainText(
+                "未找到根目录下的 CHANGELOG.md，或文件中缺少可解析的版本标题（例如 ## [0.0.1] - 日期）。"
+            )
+        section_notes.addWidget(browser)
+
+        layout.addStretch()
+        self._tabs.addTab(tab, "关于")
 
     def _refresh_ui(self):
         env = self._settings.get("env", {})
