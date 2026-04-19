@@ -3,7 +3,7 @@
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (
     QCheckBox, QFrame, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
+    QPushButton, QScrollArea, QTabWidget, QTextEdit, QVBoxLayout, QWidget,
 )
 from backend import cli
 from .theme import (
@@ -99,8 +99,8 @@ class SettingsPage(QWidget):
 
     # ── MCP Tab ──
     def _build_mcp_tab(self):
-        tab = QWidget()
-        scroll = QVBoxLayout(tab)
+        scroll_widget = QWidget()
+        scroll = QVBoxLayout(scroll_widget)
         scroll.setContentsMargins(0, 12, 0, 0)
         scroll.setSpacing(16)
 
@@ -123,7 +123,7 @@ class SettingsPage(QWidget):
         scroll.addWidget(section1)
 
         # Add custom server
-        section2 = self._make_section("添加自定义 MCP 服务器", tab)
+        section2 = self._make_section("添加自定义 MCP 服务器", scroll_widget)
         row = QHBoxLayout()
         self._new_name = QLineEdit()
         self._new_name.setPlaceholderText("名称")
@@ -146,7 +146,7 @@ class SettingsPage(QWidget):
         section2.addWidget(add_btn)
 
         # Presets
-        section3 = self._make_section("快速添加预设", tab)
+        section3 = self._make_section("快速添加预设", scroll_widget)
         self._presets_layout = QHBoxLayout()
         self._presets_layout.setSpacing(8)
         section3.addLayout(self._presets_layout)
@@ -157,7 +157,12 @@ class SettingsPage(QWidget):
         section3.addWidget(self._all_presets_label)
 
         scroll.addStretch()
-        self._tabs.addTab(tab, "MCP 服务器")
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidget(scroll_widget)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self._tabs.addTab(scroll_area, "MCP 服务器")
 
     # ── Models Tab ──
     def _build_models_tab(self):
@@ -249,12 +254,13 @@ class SettingsPage(QWidget):
                 row_layout.setContentsMargins(16, 8, 16, 8)
                 n = QLabel(name)
                 n.setStyleSheet("font-weight: 500; font-size: 13px;")
+                n.setMinimumWidth(120)
                 cmd_text = f"{cfg.get('command', '')} {' '.join(cfg.get('args', []))}"
                 cmd = QLabel(cmd_text)
                 cmd.setStyleSheet(f"color: {TEXT_FAINT}; font-size: 11px; margin-left: 8px;")
+                cmd.setWordWrap(True)
                 row_layout.addWidget(n)
-                row_layout.addWidget(cmd)
-                row_layout.addStretch()
+                row_layout.addWidget(cmd, 1)
                 del_btn = QPushButton("删除")
                 del_btn.setProperty("danger", True)
                 del_btn.setFixedHeight(28)

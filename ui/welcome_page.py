@@ -31,7 +31,7 @@ class WelcomePage(QWidget):
         logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header.addWidget(logo_label)
 
-        title = QLabel("Claude Installer")
+        title = QLabel("Claude Desktop")
         title.setStyleSheet("font-size: 16px; font-weight: 600;")
         header.addWidget(title)
 
@@ -56,10 +56,10 @@ class WelcomePage(QWidget):
             ],
         ))
 
-        # Card 2: About Claude Installer
+        # Card 2: About Claude Desktop
         root.addWidget(self._make_card(
-            "📌 关于 Claude Installer",
-            "Claude Installer 是 Claude Code 的安装配置工具，本工具会：",
+            "📌 关于 Claude Desktop",
+            "Claude Desktop 是 Claude Code 的安装配置工具，本工具会：",
             [
                 "自动安装必要组件（Node.js、Claude Code 命令行工具）",
                 "⚠ 保护现有配置（安装前自动备份，不会覆盖您的设置）",
